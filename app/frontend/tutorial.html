@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Tutorial - ducktAIpe</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦆</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Product+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="tutorial-page">
+    <div class="tutorial-container">
+        <header class="tutorial-header">
+            <a href="/" class="back-link">← Did you break something else? 😬</a>
+            <div class="logo">
+                ducktAIpe
+            </div>
+        </header>
+        <div class="tutorial-layout">
+            <aside class="tutorial-sidebar">
+                <div class="toc-title">Contents</div>
+                <nav>
+                    <ul id="toc-list" class="toc-list">
+                        <!-- TOC items will be injected here -->
+                    </ul>
+                </nav>
+            </aside>
+            <main class="tutorial-main">
+                <article id="tutorial-content" class="tutorial-content">
+                    <div class="loading-tutorial">Loading your repair tutorial...</div>
+                </article>
+            </main>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tutorialData = localStorage.getItem('currentTutorial');
+            if (!tutorialData) {
+                window.location.href = '/';
+                return;
+            }
+            
+            const contentContainer = document.getElementById('tutorial-content');
+            const tocList = document.getElementById('toc-list');
+            
+            // Render Markdown
+            contentContainer.innerHTML = marked.parse(tutorialData);
+            
+            // Generate TOC from h2 elements
+            const headings = contentContainer.querySelectorAll('h2');
+            if (headings.length === 0) {
+                document.querySelector('.tutorial-sidebar').style.display = 'none';
+                document.querySelector('.tutorial-layout').style.justifyContent = 'center';
+            } else {
+                headings.forEach((heading, index) => {
+                    const id = 'section-' + index;
+                    heading.id = id;
+                    
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    a.href = '#' + id;
+                    a.textContent = heading.textContent;
+                    a.classList.add('toc-link');
+                    
+                    // Simple active state on click
+                    a.addEventListener('click', () => {
+                        document.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
+                        a.classList.add('active');
+                    });
+
+                    li.appendChild(a);
+                    tocList.appendChild(li);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
