@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ducktAIpe - Your Multi-Agent Repairing Guide</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦆</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Product+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="landing-page">
+    <div class="container">
+        <header>
+            <div class="logo">
+                ducktAIpe - Your Multi-Agent Repairing Guide 🔧🦆
+            </div>
+            <div class="header-link">
+                <a href="https://www.carneiro.dev/about" target="_blank" class="author-link">by Luiz Carneiro</a>
+            </div>
+        </header>
+        <main class="hero-section">
+            <div class="hero-logo-container">
+                <div class="product-title">🩹 duckt<span class="ai-highlight">AI</span>pe 🦆</div>
+            </div>
+            <p class="subtitle">Just tell us what's broken, and our team of AI agents will research, diagnose, and create a comprehensive repair tutorial for faster than a duck.</p>
+            
+            <form id="create-form" class="hero-form">
+                <div class="form-input-group">
+                    <label for="image-upload" class="upload-btn" title="Upload an image (Max 3MB)">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path fill-rule="evenodd" d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z" clip-rule="evenodd" />
+                        </svg>
+                    </label>
+                    <input type="file" id="image-upload" accept="image/*" style="display: none;">
+
+                    <div id="input-area" class="input-area">
+                        <input type="text" id="topic-input" placeholder="Type or upload an image of what you need to fix..." autocomplete="off">
+                        
+                        <div id="image-loading" class="image-loading hidden">
+                            <div class="spinner small-spinner"></div>
+                            <span>Uploading...</span>
+                        </div>
+
+                        <div id="image-preview-container" class="image-preview-container hidden">
+                            <div class="preview-wrapper">
+                                <img id="image-preview" src="" alt="Preview">
+                                <button type="button" id="remove-image-btn" class="remove-image-btn">&times;</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="create-button">
+                    <span>Start Fixing</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                        <path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </form>
+            
+            <div id="gatekeeper-message" class="gatekeeper-message hidden"></div>
+
+            <div id="progress-container" class="progress-container hidden">
+                <div class="agent-status">
+                    <div class="status-icon">
+                        <div class="spinner"></div>
+                    </div>
+                    <div id="status-text" class="status-text">Initializing AI squad...</div>
+                </div>
+                <div class="progress-steps">
+                    <div class="step" id="step-researcher">
+                        <div class="step-icon">🔍</div>
+                        <div class="step-label">Researching</div>
+                    </div>
+                    <div class="step" id="step-judge">
+                        <div class="step-icon">⚖️</div>
+                        <div class="step-label">Fact-Checking</div>
+                    </div>
+                    <div class="step" id="step-builder">
+                        <div class="step-icon">🦆</div>
+                        <div class="step-label">Writing</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

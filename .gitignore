@@ -190,7 +190,6 @@ cython_debug/
 
 # Ruff stuff:
 .ruff_cache/
-oldAgenticProject/
 
 # PyPI configuration file
 .pypirc
@@ -206,3 +205,10 @@ oldAgenticProject/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Specific to this Project
+oldAgenticProject/
+.adk/
+.agent/
+.gcloudignore
+.DS_Store
