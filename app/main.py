@@ -10,8 +10,8 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 import httpx
 from httpx_sse import aconnect_sse
 
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Query
+from fastapi.responses import StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from google.genai import types as genai_types
@@ -191,7 +191,7 @@ class SimpleChatRequest(BaseModel):
     image_base64: Optional[str] = None
     image_mime_type: Optional[str] = None
 
-# Primary API endpoint for streaming course generation progress and results
+# Primary API endpoint for streaming repair tutorial generation progress and results
 @app.post("/api/chat_stream")
 async def chat_stream(request: SimpleChatRequest):
     """Streaming chat endpoint."""
@@ -269,6 +269,27 @@ async def chat_stream(request: SimpleChatRequest):
 
     # Return as an NDJSON stream for real time UI updates
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+
+# Image proxy: fetches an external image URL server-side and returns the bytes.
+# This resolves Unsplash's 302 redirect chain and avoids any browser CORS issues.
+@app.get("/api/image")
+async def proxy_image(url: str = Query(..., description="The external image URL to fetch")):
+    """Proxy endpoint that fetches an image and streams it to the browser."""
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as client:
+            resp = await client.get(url, headers={"User-Agent": "ducktAIpe/1.0"})
+            resp.raise_for_status()
+            content_type = resp.headers.get("content-type", "image/jpeg")
+            return Response(content=resp.content, media_type=content_type)
+    except Exception as e:
+        logger.warning(f"[image-proxy] Failed to fetch '{url}': {e}")
+        # Return a transparent 1×1 PNG so <img> doesn't show a broken icon
+        import base64
+        pixel = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        )
+        return Response(content=pixel, media_type="image/png", status_code=200)
 
 # Attach the static frontend files to the web server
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend")

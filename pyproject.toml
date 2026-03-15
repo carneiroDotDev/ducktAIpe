@@ -1,9 +1,9 @@
 [project]
-name = "course-creation-agent"
+name = "ducktAIpe"
 version = "0.1.0"
-description = ""
+description = "Your Multi-Agent Repairing Guide"
 authors = [
-    {name = "Your Name", email = "your@email.com"},
+    {name = "Luiz Carneiro", email = ""},
 ]
 dependencies = [
     "google-adk==1.22.0",
@@ -93,6 +93,9 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.hatch.build.targets.wheel]
 packages = ["frontend"]
+
+[tool.uv]
+workspace = { members = ["agents/*", "mcp_server"] }
 
 [[tool.uv.index]]
 name = "pypi"
