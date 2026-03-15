@@ -45,13 +45,21 @@ gcloud run deploy gatekeeper \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true"
 GATEKEEPER_URL=$(gcloud run services describe gatekeeper --region $REGION --format='value(status.url)')
 
+gcloud run deploy mcp-server \
+  --source mcp_server \
+  --project $GOOGLE_CLOUD_PROJECT \
+  --region $REGION \
+  --no-allow-unauthenticated
+MCP_URL=$(gcloud run services describe mcp-server --region $REGION --format='value(status.url)')
+
 gcloud run deploy researcher \
   --source agents/researcher \
   --project $GOOGLE_CLOUD_PROJECT \
   --region $REGION \
   --no-allow-unauthenticated \
   --set-env-vars GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" \
-  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true"
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true" \
+  --set-env-vars MCP_SERVER_URL="$MCP_URL/sse"
 RESEARCHER_URL=$(gcloud run services describe researcher --region $REGION --format='value(status.url)')
 
 gcloud run deploy content-builder \
@@ -60,7 +68,8 @@ gcloud run deploy content-builder \
   --region $REGION \
   --no-allow-unauthenticated \
   --set-env-vars GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" \
-  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true"
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true" \
+  --set-env-vars MCP_SERVER_URL="$MCP_URL/sse"
 CONTENT_BUILDER_URL=$(gcloud run services describe content-builder --region $REGION --format='value(status.url)')
 
 gcloud run deploy judge \
@@ -85,7 +94,7 @@ gcloud run deploy orchestrator \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true"
 ORCHESTRATOR_URL=$(gcloud run services describe orchestrator --region $REGION --format='value(status.url)')
 
-gcloud run deploy course-creator \
+gcloud run deploy ducktaipe-frontend \
   --source app \
   --project $GOOGLE_CLOUD_PROJECT \
   --region $REGION \

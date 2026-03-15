@@ -33,6 +33,27 @@ warnings.filterwarnings(
 )
 os.environ["ADK_SUPPRESS_EXPERIMENTAL_FEATURE_WARNINGS"] = "True"
 
+# ── Suppress known upstream noise ──────────────────────────────────────────
+# 1. MCP client SSE teardown bug: anyio cancel scope raises RuntimeError when
+#    the SSE connection is closed from a different asyncio task (mcp/client/sse.py).
+#    This is an unfixable upstream bug — filtering is the correct approach.
+# 2. google.genai types.py INFO message about JSON Schema conversion is purely
+#    informational and fires on every MCP tool registration — suppress it.
+class _NoisyMcpSseFilter(logging.Filter):
+    _SUPPRESS = (
+        "generator didn't stop after athrow()",
+        "Attempted to exit cancel scope in a different task",
+        "error occurred during closing of asynchronous generator",
+        "Conversion of fields that are not included in the JSONSchema class are ignored",
+    )
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        return not any(s in msg for s in self._SUPPRESS)
+
+_mcp_filter = _NoisyMcpSseFilter()
+for _logger_name in ("asyncio", "mcp", "mcp.client.sse", "google.genai.types"):
+    logging.getLogger(_logger_name).addFilter(_mcp_filter)
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 LOG_LEVELS = click.Choice(
@@ -191,6 +212,21 @@ def main(
         log_level = "DEBUG"
 
     logs.setup_adk_logger(getattr(logging, log_level.upper()))
+
+    # ── Service-prefix log filter ──────────────────────────────────────────
+    # Python logging filters on a Logger only apply to records logged directly
+    # to THAT logger. Records from child loggers (google.adk.*, etc.) propagate
+    # up to the root's HANDLERS, bypassing logger-level filters. So we attach
+    # the filter to every handler on the root logger to catch all records.
+    _service = os.environ.get("SERVICE_NAME", "Agent")
+    class _ServicePrefixFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            record.msg = f"[{_service}] {record.msg}"
+            return True
+    _prefix_filter = _ServicePrefixFilter()
+    root_logger = logging.getLogger()
+    for _handler in root_logger.handlers:
+        _handler.addFilter(_prefix_filter)
 
     reload = False
     reload_agents = False

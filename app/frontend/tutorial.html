@@ -4,26 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your Tutorial - ducktAIpe</title>
+    <meta name="description" content="Your AI-generated repair tutorial from ducktAIpe.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦆</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Product+Sans:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ── YouTube embed card ───────────────────────────────────────────── */
+        .yt-embed-card {
+            margin: 24px 0;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--surface-border);
+            background: rgba(0,0,0,0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .yt-embed-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+        }
+        .yt-embed-card iframe {
+            width: 100%;
+            aspect-ratio: 16/9;
+            display: block;
+            border: none;
+        }
+        .yt-embed-caption {
+            padding: 14px 20px;
+            font-size: 1rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .yt-embed-caption svg {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            fill: #ff0000;
+        }
+        .yt-open-link {
+            margin-left: auto;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+        .yt-open-link:hover { opacity: 0.75; }
+
+        /* ── Tutorial image ───────────────────────────────────────────────── */
+        .tutorial-content img {
+            max-width: 100%;
+            border-radius: 16px;
+            margin: 24px auto;
+            display: block;
+            border: 1px solid var(--surface-border);
+            background: rgba(255,255,255,0.03);
+        }
+        .img-loading-wrapper {
+            position: relative;
+            margin: 24px auto;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--surface-border);
+            background: rgba(255,255,255,0.03);
+            aspect-ratio: 1;
+            max-width: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .img-loading-wrapper .spinner {
+            position: absolute;
+        }
+        .img-loading-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border: none;
+            margin: 0;
+            border-radius: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .img-loading-wrapper img.loaded {
+            opacity: 1;
+        }
+    </style>
 </head>
 <body class="tutorial-page">
     <div class="tutorial-container">
         <header class="tutorial-header">
             <a href="/" class="back-link">← Did you break something else? 😬</a>
-            <div class="logo">
-                ducktAIpe
-            </div>
+            <div class="logo">ducktAIpe</div>
         </header>
         <div class="tutorial-layout">
             <aside class="tutorial-sidebar">
                 <div class="toc-title">Contents</div>
                 <nav>
                     <ul id="toc-list" class="toc-list">
-                        <!-- TOC items will be injected here -->
+                        <!-- TOC items injected by JS -->
                     </ul>
                 </nav>
             </aside>
@@ -34,48 +117,153 @@
             </main>
         </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const tutorialData = localStorage.getItem('currentTutorial');
-            if (!tutorialData) {
-                window.location.href = '/';
-                return;
-            }
-            
-            const contentContainer = document.getElementById('tutorial-content');
-            const tocList = document.getElementById('toc-list');
-            
-            // Render Markdown
-            contentContainer.innerHTML = marked.parse(tutorialData);
-            
-            // Generate TOC from h2 elements
-            const headings = contentContainer.querySelectorAll('h2');
-            if (headings.length === 0) {
-                document.querySelector('.tutorial-sidebar').style.display = 'none';
-                document.querySelector('.tutorial-layout').style.justifyContent = 'center';
-            } else {
-                headings.forEach((heading, index) => {
-                    const id = 'section-' + index;
-                    heading.id = id;
-                    
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.href = '#' + id;
-                    a.textContent = heading.textContent;
-                    a.classList.add('toc-link');
-                    
-                    // Simple active state on click
-                    a.addEventListener('click', () => {
-                        document.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
-                        a.classList.add('active');
-                    });
+    document.addEventListener('DOMContentLoaded', () => {
+        const tutorialData = localStorage.getItem('currentTutorial');
+        if (!tutorialData) {
+            window.location.href = '/';
+            return;
+        }
 
-                    li.appendChild(a);
-                    tocList.appendChild(li);
+        // ── 1. Strip internal context / status tags the LLM sometimes leaks ──
+        //    Removes lines like "[Context: The object to fix is a ...]",
+        //    JSON status blobs like {"status":"fail","feedback":"..."}, etc.
+        function cleanContent(raw) {
+            return raw
+                // Remove [Context: ...] injections (single or multi-line, up to 300 chars)
+                .replace(/\[Context:[^\]]{0,300}\]/g, '')
+                // Remove bare JSON objects that look like judge feedback
+                .replace(/\{\s*"status"\s*:\s*"(pass|fail)"[^}]{0,2000}\}/gs, '')
+                // Collapse multiple blank lines into at most two
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+        }
+
+        // ── 2. Extract YouTube video ID from a URL ────────────────────────
+        function extractYouTubeId(url) {
+            const match = url.match(
+                /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+            );
+            return match ? match[1] : null;
+        }
+
+        // ── 3. Build a rich YouTube embed card ───────────────────────────
+        function buildYtCard(videoId, rawUrl) {
+            return `
+            <div class="yt-embed-card">
+                <iframe
+                    src="https://www.youtube.com/embed/${videoId}"
+                    title="YouTube video tutorial"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen
+                    loading="lazy">
+                </iframe>
+                <div class="yt-embed-caption">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    <span>Watch on YouTube</span>
+                    <a class="yt-open-link" href="${rawUrl}" target="_blank" rel="noopener">Open ↗</a>
+                </div>
+            </div>`;
+        }
+
+        // ── 4. Post-process rendered HTML ────────────────────────────────
+        //    a) Wrap AI-generated images in a loading shell with spinner
+        //    b) Replace bare YouTube URLs (not already embedded) with cards
+        function postProcess(container) {
+            // a) Images — proxy through our backend (resolves Unsplash redirects & CORS)
+            //    then wrap in a loading shell so the spinner shows while downloading
+            container.querySelectorAll('img').forEach(img => {
+                const originalSrc = img.getAttribute('src') || '';
+                if (originalSrc && !originalSrc.startsWith('/api/image')) {
+                    img.setAttribute('src', `/api/image?url=${encodeURIComponent(originalSrc)}`);
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'img-loading-wrapper';
+
+                const spinner = document.createElement('div');
+                spinner.className = 'spinner';
+                wrapper.appendChild(spinner);
+
+                img.parentNode.insertBefore(wrapper, img);
+                wrapper.appendChild(img);
+
+                img.addEventListener('load', () => {
+                    img.classList.add('loaded');
+                    spinner.style.display = 'none';
                 });
-            }
-        });
+                img.addEventListener('error', () => {
+                    wrapper.innerHTML = '<span style="color:var(--text-muted);font-size:0.95rem;padding:16px;">📷 Image unavailable</span>';
+                });
+            });
+
+            // b) Bare YouTube links: <a> tags whose href and text are the same YouTube URL
+            //    (marked renders a bare URL as an autolink: <a href="url">url</a>)
+            container.querySelectorAll('a').forEach(a => {
+                const href = a.getAttribute('href') || '';
+                const videoId = extractYouTubeId(href);
+                // Only replace if the link text IS the URL (bare auto-link, not descriptive text)
+                if (videoId && (a.textContent.trim() === href.trim() || a.textContent.trim().startsWith('https://www.youtube'))) {
+                    const card = document.createElement('div');
+                    card.innerHTML = buildYtCard(videoId, href);
+                    a.closest('p')?.replaceWith(card.firstElementChild) || a.replaceWith(card.firstElementChild);
+                }
+            });
+        }
+
+        // ── 5. Render and inject ─────────────────────────────────────────
+        const cleaned = cleanContent(tutorialData);
+        const contentContainer = document.getElementById('tutorial-content');
+        const tocList = document.getElementById('toc-list');
+
+        contentContainer.innerHTML = marked.parse(cleaned);
+        postProcess(contentContainer);
+
+        // ── 6. Generate TOC from h2 headings ─────────────────────────────
+        const headings = contentContainer.querySelectorAll('h2');
+        if (headings.length === 0) {
+            document.querySelector('.tutorial-sidebar').style.display = 'none';
+            document.querySelector('.tutorial-layout').style.justifyContent = 'center';
+        } else {
+            headings.forEach((heading, index) => {
+                const id = 'section-' + index;
+                heading.id = id;
+
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = '#' + id;
+                a.textContent = heading.textContent;
+                a.classList.add('toc-link');
+                if (index === 0) a.classList.add('active');
+
+                a.addEventListener('click', () => {
+                    document.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
+                    a.classList.add('active');
+                });
+
+                li.appendChild(a);
+                tocList.appendChild(li);
+            });
+
+            // Highlight TOC item on scroll
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        document.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
+                        const active = tocList.querySelector(`a[href="#${id}"]`);
+                        if (active) active.classList.add('active');
+                    }
+                });
+            }, { rootMargin: '-20% 0px -70% 0px' });
+
+            headings.forEach(h => observer.observe(h));
+        }
+    });
     </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 [project]
-name = "course-creation-app"
+name = "ducktAIpe"
 version = "0.1.0"
-description = "Course Creation Web App"
+description = "Your Multi-Agent Repairing Guide"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "uvicorn==0.40.0",

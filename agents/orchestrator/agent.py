@@ -1,8 +1,9 @@
 # Objective: This file defines the master agent that coordinates the 
-# multi agent workflow for course creation.
+# multi agent workflow for repair tutorials.
 
 import os
 import json
+import logging
 from typing import AsyncGenerator
 from google.adk.agents import BaseAgent, LoopAgent, SequentialAgent
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
@@ -12,6 +13,8 @@ from google.adk.agents.callback_context import CallbackContext
 
 # Import utility for authenticated communication
 from authenticated_httpx import create_authenticated_client
+
+logger = logging.getLogger(__name__)
 
 # *** Callbacks Section ***
 
@@ -42,15 +45,22 @@ def create_save_output_callback(key: str):
                     else:
                         # Store standard text outputs directly
                         ctx.state[key] = text
-                    
-                    # Log successful state persistence
-                    print(f"[{ctx.agent_name}] Saved output to state['{key}']")
+
+                    logger.info("Saved output to state['%s'] from agent '%s'", key, ctx.agent_name)
                     return
     return callback
 
+
+def create_before_callback(step_label: str):
+    """Creates a callback that logs when an agent step begins."""
+    def callback(callback_context: CallbackContext, **kwargs) -> None:
+        logger.info(">>> Step started: %s", step_label)
+    return callback
+
+
 # *** Remote Agents Section ***
 
-# TODO: Define connections to remote agents
+# Define connections to remote agents
 # Connect to Researcher, Judge, and Content Builder using RemoteA2aAgent.
 # Remember to use the environment variables for URLs (or localhost defaults).
 
@@ -60,6 +70,7 @@ gatekeeper = RemoteA2aAgent(
     name="gatekeeper",
     agent_card=gatekeeper_url,
     description="Evaluates context from the user.",
+    before_agent_callback=create_before_callback("Gatekeeper: validating user input"),
     after_agent_callback=create_save_output_callback("gatekeeper_feedback"),
     httpx_client=create_authenticated_client(gatekeeper_url)
 )
@@ -69,8 +80,9 @@ researcher_url = os.environ.get("RESEARCHER_AGENT_CARD_URL", "http://localhost:8
 researcher = RemoteA2aAgent(
     name="researcher",
     agent_card=researcher_url,
-    description="Gathers information using Google Search.",
-    # IMPORTANT: Save the output to state for the Judge to see
+    # IMPORTANT: Use authenticated client for communication
+    description="Gathers information using web search.",
+    before_agent_callback=create_before_callback("Researcher: searching and reading documentation"),
     after_agent_callback=create_save_output_callback("research_findings"),
     # IMPORTANT: Use authenticated client for communication
     httpx_client=create_authenticated_client(researcher_url)
@@ -82,7 +94,8 @@ judge = RemoteA2aAgent(
     name="judge",
     agent_card=judge_url,
     description="Evaluates research.",
-    # Trigger callback after execution to store judge feedback
+    before_agent_callback=create_before_callback("Judge: evaluating research quality"),
+    # IMPORTANT: callback after execution to save the feedback
     after_agent_callback=create_save_output_callback("judge_feedback"),
     # Attach identity tokens for secure service calls
     httpx_client=create_authenticated_client(judge_url)
@@ -93,14 +106,13 @@ content_builder_url = os.environ.get("CONTENT_BUILDER_AGENT_CARD_URL", "http://l
 content_builder = RemoteA2aAgent(
     name="content_builder",
     agent_card=content_builder_url,
-    description="Builds the course.",
-    # Attach identity tokens for secure service calls
+    description="Builds the tutorial.",
+    before_agent_callback=create_before_callback("Content Builder: assembling tutorial with images and video"),
     httpx_client=create_authenticated_client(content_builder_url)
 )
 
 # --- Escalation Checker ---
 
-# TODO: Define EscalationChecker
 # This agent should check the status of the judge's feedback.
 # If status is "pass", it should escalate (break the loop).
 
@@ -112,7 +124,7 @@ class EscalationChecker(BaseAgent):
     ) -> AsyncGenerator[Event, None]:
         # Retrieve the feedback saved by the Judge
         feedback = ctx.session.state.get("judge_feedback")
-        print(f"[EscalationChecker] Feedback: {feedback}")
+        logger.info("Judge feedback received: %s", feedback)
 
         # Check for 'pass' status
         is_pass = False
@@ -124,9 +136,11 @@ class EscalationChecker(BaseAgent):
 
         if is_pass:
             # 'escalate=True' tells the parent LoopAgent to stop looping
+            logger.info(">>> Judge verdict: PASS — research approved, exiting loop")
             yield Event(author=self.name, actions=EventActions(escalate=True))
         else:
-            # Continue the loop
+            # Otherwise, continue the loop
+            logger.info(">>> Judge verdict: FAIL — looping back for another research iteration")
             yield Event(author=self.name)
 
 # Instantiate the checker agent
@@ -140,7 +154,7 @@ class GatekeeperChecker(BaseAgent):
     ) -> AsyncGenerator[Event, None]:
         # Retrieve the feedback saved by the Gatekeeper
         feedback = ctx.session.state.get("gatekeeper_feedback")
-        print(f"[GatekeeperChecker] Feedback: {feedback}")
+        logger.info("Gatekeeper feedback received: %s", feedback)
 
         # Check if enough_context is false
         has_context = False
@@ -150,9 +164,12 @@ class GatekeeperChecker(BaseAgent):
             has_context = True
 
         if not has_context:
-            # escalate=True to stop the sequential pipeline
+            # 'escalate=True' tells the parent LoopAgent to stop looping
+            logger.info(">>> Gatekeeper verdict: NOT ENOUGH CONTEXT — aborting pipeline")
             yield Event(author=self.name, actions=EventActions(escalate=True))
         else:
+            # Otherwise, continue the loop
+            logger.info(">>> Gatekeeper verdict: CONTEXT OK — proceeding to research")
             yield Event(author=self.name)
 
 # Instantiate the gatekeeper checker
@@ -166,7 +183,7 @@ class TopicEnricher(BaseAgent):
     ) -> AsyncGenerator[Event, None]:
         # Retrieve the recognized object from the Gatekeeper
         feedback = ctx.session.state.get("gatekeeper_feedback")
-        
+
         recognized_object = "this item"
         if isinstance(feedback, dict) and feedback.get("recognized_object"):
             recognized_object = feedback.get("recognized_object")
@@ -174,8 +191,9 @@ class TopicEnricher(BaseAgent):
         # We don't yield a message to the UI here, we just want to ensure
         # the model knows what object we are talking about.
         # But we can yield an event to provide context for the models in the loop.
+        logger.info(">>> Topic enriched: '%s'", recognized_object)
         enrichment_msg = f"\n[Context: The object to fix is a {recognized_object}.]"
-        yield Event(author=self.name, content=enrichment_msg)
+        yield Event(author=self.name, content={"parts": [{"text": enrichment_msg}]})
 
 # Instantiate the topic enricher
 topic_enricher = TopicEnricher(name="topic_enricher")
