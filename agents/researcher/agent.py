@@ -2,8 +2,12 @@
 # tools to gather information on requested topics.
 
 import os
+import logging
 from google.adk.agents import Agent
 from google.adk.tools.mcp_tool import SseConnectionParams, McpToolset
+from google.adk.agents.callback_context import CallbackContext
+
+logger = logging.getLogger(__name__)
 
 # Set up the MCP toolset for the researcher.
 # Fallback to local 8888 if no ENV var is present (during direct python testing).
@@ -24,11 +28,20 @@ mcp_toolset = McpToolset(
 # Define the model version for the agent
 MODEL = "gemini-2.5-pro"
 
+# Logging callbacks for the agent
+def agent_before_callback(callback_context: CallbackContext, **kwargs):
+    logger.info(">>> A2A: Received incoming request. Starting processing...")
+
+def agent_after_callback(callback_context: CallbackContext, **kwargs):
+    logger.info("<<< A2A: Completed processing. Sending response back.")
+
 # Define the Researcher Agent
 researcher = Agent(
     name="researcher",
     model=MODEL,
     description="Gathers information on a topic using web search.",
+    before_agent_callback=agent_before_callback,
+    after_agent_callback=agent_after_callback,
     instruction="""
     You are the Lead Repair Researcher for ducktAIpe. Your goal is to find comprehensive 
     and accurate technical information to fix the specific object identified by the user.

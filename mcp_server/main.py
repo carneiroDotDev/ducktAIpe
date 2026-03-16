@@ -154,13 +154,28 @@ def fetch_stock_image(query: str) -> dict:
     Use this tool to visually enhance the final repair guide when a contextual photo is needed.
     Pass a short, descriptive keyword phrase such as 'bicycle tire repair' or 'car engine oil change'.
     """
-    # LoremFlickr: free, no API key required, returns real Flickr photos by keyword tag.
-    # URL format: https://loremflickr.com/{width}/{height}/{comma-separated-keywords}
-    # This reliably returns a 302 redirect to a real JPEG image.
-    tags = query.strip().replace(' ', ',')
-    url = f"https://loremflickr.com/960/540/{tags}"
-    logger.info(f"[fetch_stock_image] Generated LoremFlickr URL for: '{query}' → {url}")
-    return {"toolName": "fetch_stock_image", "success": True, "content": url}
+    import random
+
+    logger.info(f"[fetch_stock_image] Searching for relevant image: '{query}'")
+    try:
+        from ddgs import DDGS
+        results = DDGS().images(query, max_results=5)
+        # Filter to results that have a direct image URL
+        image_urls = [r.get("image") for r in results if r.get("image")]
+        if image_urls:
+            chosen = random.choice(image_urls)
+            logger.info(f"[fetch_stock_image] Found image for '{query}': {chosen}")
+            return {"toolName": "fetch_stock_image", "success": True, "content": chosen}
+
+        logger.warning(f"[fetch_stock_image] No images found via search for: '{query}'")
+    except Exception as e:
+        logger.error(f"[fetch_stock_image] Image search failed for '{query}': {e}")
+
+    # Fallback: LoremFlickr with the first keyword only
+    first_tag = query.strip().split()[0] if query.strip() else "repair"
+    fallback_url = f"https://loremflickr.com/960/540/{first_tag}"
+    logger.info(f"[fetch_stock_image] Falling back to LoremFlickr: {fallback_url}")
+    return {"toolName": "fetch_stock_image", "success": True, "content": fallback_url}
 
 
 if __name__ == "__main__":

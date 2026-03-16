@@ -1,9 +1,13 @@
 # Objective: This file defines the gatekeeper agent that evaluates 
 # whether the user's input has enough context to build a repair tutorial.
 
+import logging
 from typing import Literal
 from google.adk.agents import Agent
 from pydantic import BaseModel, Field
+from google.adk.agents.callback_context import CallbackContext
+
+logger = logging.getLogger(__name__)
 
 # Define the model version for the evaluation task
 MODEL = "gemini-2.5-pro"
@@ -18,11 +22,20 @@ class GatekeeperDecision(BaseModel):
         description="The object that was recognized and what appears to be broken. If not enough context, a brief explanation of what is missing."
     )
 
+# Logging callbacks for the agent
+def agent_before_callback(callback_context: CallbackContext, **kwargs):
+    logger.info(">>> A2A: Received incoming request. Validating user input...")
+
+def agent_after_callback(callback_context: CallbackContext, **kwargs):
+    logger.info("<<< A2A: Validation complete. Sending decision back.")
+
 # Define the Gatekeeper Agent logic
 gatekeeper = Agent(
     name="gatekeeper",
     model=MODEL,
     description="Evaluates if the user provided enough context to create a repair tutorial and identifies the broken object.",
+    before_agent_callback=agent_before_callback,
+    after_agent_callback=agent_after_callback,
     instruction="""
     You are a gatekeeper for a repair tutorial generator.
     Evaluate the user's prompt (which might describe an image or text).

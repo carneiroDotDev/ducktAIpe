@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 # *** Callbacks Section ***
 
 # Function to create callbacks that persist agent outputs to the session state
-def create_save_output_callback(key: str):
-    """Creates a callback to save the agent's final response to session state."""
+def create_save_output_callback(key: str, step_label: str = None):
+    """Creates a callback to save the agent's final response to session state and log it."""
 
     # Internal callback function invoked by the ADK framework
     def callback(callback_context: CallbackContext, **kwargs) -> None:
@@ -34,6 +34,11 @@ def create_save_output_callback(key: str):
                 # Extract the text component of the message
                 text = event.content.parts[0].text
                 if text:
+                    # Log the response (A2A receiving part)
+                    snippet = text[:200] + "..." if len(text) > 200 else text
+                    label = step_label or ctx.agent_name
+                    logger.info("<<< A2A: Received response for '%s': %s", label, snippet.replace('\n', ' '))
+
                     # Special handling for judge feedback which is structured JSON
                     if key == "judge_feedback" and text.strip().startswith("{"):
                         try:
@@ -51,10 +56,27 @@ def create_save_output_callback(key: str):
     return callback
 
 
-def create_before_callback(step_label: str):
+def create_before_callback(step_label: str, target_url: str = None):
     """Creates a callback that logs when an agent step begins."""
     def callback(callback_context: CallbackContext, **kwargs) -> None:
-        logger.info(">>> Step started: %s", step_label)
+        url_part = f" to {target_url}" if target_url else ""
+        logger.info(">>> A2A: Sending request for step '%s'%s", step_label, url_part)
+    return callback
+
+
+def create_after_callback(step_label: str):
+    """Creates a callback that logs when an agent response is received."""
+    def callback(callback_context: CallbackContext, **kwargs) -> None:
+        # Extract response snippet for logging
+        ctx = callback_context
+        content = "No content"
+        for event in reversed(ctx.session.events):
+            if event.author == ctx.agent_name and event.content and event.content.parts:
+                text = event.content.parts[0].text
+                if text:
+                    content = text[:200] + "..." if len(text) > 200 else text
+                    break
+        logger.info("<<< A2A: Received response for step '%s': %s", step_label, content.replace('\n', ' '))
     return callback
 
 
@@ -70,8 +92,8 @@ gatekeeper = RemoteA2aAgent(
     name="gatekeeper",
     agent_card=gatekeeper_url,
     description="Evaluates context from the user.",
-    before_agent_callback=create_before_callback("Gatekeeper: validating user input"),
-    after_agent_callback=create_save_output_callback("gatekeeper_feedback"),
+    before_agent_callback=create_before_callback("Gatekeeper: validating user input", gatekeeper_url),
+    after_agent_callback=create_save_output_callback("gatekeeper_feedback", "Gatekeeper"),
     httpx_client=create_authenticated_client(gatekeeper_url)
 )
 
@@ -82,8 +104,8 @@ researcher = RemoteA2aAgent(
     agent_card=researcher_url,
     # IMPORTANT: Use authenticated client for communication
     description="Gathers information using web search.",
-    before_agent_callback=create_before_callback("Researcher: searching and reading documentation"),
-    after_agent_callback=create_save_output_callback("research_findings"),
+    before_agent_callback=create_before_callback("Researcher: searching and reading documentation", researcher_url),
+    after_agent_callback=create_save_output_callback("research_findings", "Researcher"),
     # IMPORTANT: Use authenticated client for communication
     httpx_client=create_authenticated_client(researcher_url)
 )
@@ -94,9 +116,9 @@ judge = RemoteA2aAgent(
     name="judge",
     agent_card=judge_url,
     description="Evaluates research.",
-    before_agent_callback=create_before_callback("Judge: evaluating research quality"),
+    before_agent_callback=create_before_callback("Judge: evaluating research quality", judge_url),
     # IMPORTANT: callback after execution to save the feedback
-    after_agent_callback=create_save_output_callback("judge_feedback"),
+    after_agent_callback=create_save_output_callback("judge_feedback", "Judge"),
     # Attach identity tokens for secure service calls
     httpx_client=create_authenticated_client(judge_url)
 )
@@ -107,7 +129,8 @@ content_builder = RemoteA2aAgent(
     name="content_builder",
     agent_card=content_builder_url,
     description="Builds the tutorial.",
-    before_agent_callback=create_before_callback("Content Builder: assembling tutorial with images and video"),
+    before_agent_callback=create_before_callback("Content Builder: assembling tutorial", content_builder_url),
+    after_agent_callback=create_after_callback("Content Builder"),
     httpx_client=create_authenticated_client(content_builder_url)
 )
 
