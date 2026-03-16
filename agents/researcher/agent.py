@@ -9,18 +9,31 @@ from google.adk.agents.callback_context import CallbackContext
 
 logger = logging.getLogger(__name__)
 
-# Set up the MCP toolset for the researcher.
-# Fallback to local 8888 if no ENV var is present (during direct python testing).
-#
-# NOTE ON VERTEX AI TOOL COMPATIBILITY:
-# Vertex AI does NOT allow mixing its built-in search grounding tool (google_search)
-# with custom function declarations (like MCP tools) in a single request.
-# To solve this, web search capability has been moved INTO the MCP server as the
-# `search_web` tool (powered by duckduckgo_search). This way, the researcher
-# uses ONLY McpToolset — a single homogeneous tool type — which Vertex AI supports.
+def get_id_token(url: str) -> str:
+    """Fetches an identity token for the given audience when running in GCP."""
+    try:
+        from google.auth.transport.requests import Request
+        from google.oauth2 import id_token
+        # Fetch token for the base URL as audience
+        target_audience = "/".join(url.split("/")[:3]) 
+        return id_token.fetch_id_token(Request(), target_audience)
+    except Exception:
+        return ""
+
 MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://localhost:8888/sse")
+
+# Prepare headers for MCP connection (essential for Cloud Run auth)
+mcp_headers = {}
+if "localhost" not in MCP_SERVER_URL:
+    token = get_id_token(MCP_SERVER_URL)
+    if token:
+        mcp_headers["Authorization"] = f"Bearer {token}"
+
 mcp_toolset = McpToolset(
-    connection_params=SseConnectionParams(url=MCP_SERVER_URL),
+    connection_params=SseConnectionParams(
+        url=MCP_SERVER_URL,
+        headers=mcp_headers
+    ),
     # Expose both search and web reading tools to the researcher
     tool_filter=["search_web", "fetch_web_page_content"]
 )
