@@ -52,18 +52,23 @@ gcloud run deploy mcp-server \
   --no-allow-unauthenticated
 MCP_URL=$(gcloud run services describe mcp-server --region $REGION --format='value(status.url)')
 
-# Wait for MCP server cold start / warm up (Researcher will timeout if MCP is slow to respond)
-echo "Waiting for MCP server to wake up..."
-MAX_RETRIES=15
+# Wait for MCP server cold start / warm up
+echo "Waiting for MCP server to wake up at $MCP_URL..."
+MAX_RETRIES=20
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  if curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $(gcloud auth print-identity-token -q)" "$MCP_URL/sse" | grep -qE "200|404|405"; then
-    echo "MCP server is awake!"
+  # Fetch an identity token specifically for this service audience
+  TOKEN=$(gcloud auth print-identity-token --audiences="$MCP_URL" -q)
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$MCP_URL/sse")
+  
+  if [[ "$STATUS" == "200" || "$STATUS" == "404" || "$STATUS" == "405" ]]; then
+    echo "MCP server is awake! (Status: $STATUS)"
     break
   fi
+  
   RETRY_COUNT=$((RETRY_COUNT+1))
-  echo "Still waiting for MCP... ($RETRY_COUNT/$MAX_RETRIES)"
-  sleep 2
+  echo "Still waiting for MCP... status $STATUS ($RETRY_COUNT/$MAX_RETRIES)"
+  sleep 3
 done
 
 gcloud run deploy researcher \
