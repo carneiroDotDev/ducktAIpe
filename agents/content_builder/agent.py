@@ -9,30 +9,10 @@ from google.adk.agents.callback_context import CallbackContext
 
 logger = logging.getLogger(__name__)
 
-def get_id_token(url: str) -> str:
-    """Fetches an identity token for the given audience when running in GCP."""
-    try:
-        from google.auth.transport.requests import Request
-        from google.oauth2 import id_token
-        target_audience = "/".join(url.split("/")[:3]) 
-        return id_token.fetch_id_token(Request(), target_audience)
-    except Exception:
-        return ""
-
 # Set up the MCP toolset for the content builder
 MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://localhost:8888/sse")
-
-mcp_headers = {}
-if "localhost" not in MCP_SERVER_URL:
-    token = get_id_token(MCP_SERVER_URL)
-    if token:
-        mcp_headers["Authorization"] = f"Bearer {token}"
-
 mcp_toolset = McpToolset(
-    connection_params=SseConnectionParams(
-        url=MCP_SERVER_URL,
-        headers=mcp_headers
-    ),
+    connection_params=SseConnectionParams(url=MCP_SERVER_URL),
     tool_filter=["find_youtube_video", "fetch_stock_image"]
 )
 

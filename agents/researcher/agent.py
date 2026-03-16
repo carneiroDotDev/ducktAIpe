@@ -9,31 +9,9 @@ from google.adk.agents.callback_context import CallbackContext
 
 logger = logging.getLogger(__name__)
 
-def get_id_token(url: str) -> str:
-    """Fetches an identity token for the given audience when running in GCP."""
-    try:
-        from google.auth.transport.requests import Request
-        from google.oauth2 import id_token
-        # Fetch token for the base URL as audience
-        target_audience = "/".join(url.split("/")[:3]) 
-        return id_token.fetch_id_token(Request(), target_audience)
-    except Exception:
-        return ""
-
 MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://localhost:8888/sse")
-
-# Prepare headers for MCP connection (essential for Cloud Run auth)
-mcp_headers = {}
-if "localhost" not in MCP_SERVER_URL:
-    token = get_id_token(MCP_SERVER_URL)
-    if token:
-        mcp_headers["Authorization"] = f"Bearer {token}"
-
 mcp_toolset = McpToolset(
-    connection_params=SseConnectionParams(
-        url=MCP_SERVER_URL,
-        headers=mcp_headers
-    ),
+    connection_params=SseConnectionParams(url=MCP_SERVER_URL),
     # Expose both search and web reading tools to the researcher
     tool_filter=["search_web", "fetch_web_page_content"]
 )

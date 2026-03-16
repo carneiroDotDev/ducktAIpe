@@ -49,7 +49,7 @@ gcloud run deploy mcp-server \
   --source mcp_server \
   --project $GOOGLE_CLOUD_PROJECT \
   --region $REGION \
-  --no-allow-unauthenticated
+  --allow-unauthenticated
 MCP_URL=$(gcloud run services describe mcp-server --region $REGION --format='value(status.url)')
 
 # Wait for MCP server cold start / warm up
@@ -57,9 +57,7 @@ echo "Waiting for MCP server to wake up at $MCP_URL..."
 MAX_RETRIES=20
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  # Fetch an identity token specifically for this service audience
-  TOKEN=$(gcloud auth print-identity-token --audiences="$MCP_URL" -q)
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$MCP_URL/sse")
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$MCP_URL/sse")
   
   if [[ "$STATUS" == "200" || "$STATUS" == "404" || "$STATUS" == "405" ]]; then
     echo "MCP server is awake! (Status: $STATUS)"
