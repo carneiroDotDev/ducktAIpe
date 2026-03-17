@@ -1,7 +1,7 @@
 # 🦆 ducktAIpe
 
 <p align="center">
-  <img src="app/frontend/logo.png" alt="ducktAIpe Logo" width="200">
+  <img src="app/frontend/logo.png" alt="ducktAIpe Logo" width="300">
 </p>
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-ducktAIpe-FFD700?style=for-the-badge&logo=google-cloud&logoColor=white)](https://ducktaipe-frontend-979138472410.us-central1.run.app/)
