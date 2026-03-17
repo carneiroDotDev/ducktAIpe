@@ -1,7 +1,7 @@
+#!/usr/bin/env bash
+
 # Objective: This script launches the orchestrator agent service with 
 # specific configurations for session, memory, and artifact storage.
-
-#!/bin/bash
 
 # Copyright 2025 Google LLC
 #
