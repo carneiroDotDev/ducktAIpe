@@ -7,6 +7,7 @@ import uvicorn
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 # ── Logging Setup ───────────────────────────────────────────────────────────
 # Matches the format used by ADK agents for consistent log readability.
@@ -60,7 +61,13 @@ for _n in ("asyncio", "mcp", "mcp.client.sse"):
     logging.getLogger(_n).addFilter(_mcp_noise_filter)
 
 # ── MCP Server ──────────────────────────────────────────────────────────────
-mcp = FastMCP("RepairGuideTools")
+# Explicitly disable DNS rebinding protection for Cloud Run and bind to
+# 0.0.0.0 so the service accepts the *.run.app hosts used by Cloud Run.
+mcp = FastMCP(
+    "RepairGuideTools",
+    host="0.0.0.0",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
 logger.info("MCP Server 'RepairGuideTools' initializing on port 8888")
 
 
