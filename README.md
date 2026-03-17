@@ -82,3 +82,5 @@ This will push all services to Cloud Run and wire them up automatically.
 ---
 
 *Made with ❤️ and a lot of 🦆 by the ducktAIpe team.*
++
+*I'm kidding its solo dev thing: carneiro.dev/about*
