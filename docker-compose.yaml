@@ -1,0 +1,166 @@
+services:
+  mcp-server:
+    build:
+      context: ./mcp_server
+      dockerfile: Dockerfile
+    container_name: ducktaipe-mcp-server
+    ports:
+      - "8888:8888"
+    environment:
+      - PORT=8888
+      - PYTHONUNBUFFERED=1
+    networks:
+      - ducktaipe-net
+    restart: unless-stopped
+
+  gatekeeper:
+    build:
+      context: ./agents/gatekeeper
+      dockerfile: Dockerfile
+    container_name: ducktaipe-gatekeeper
+    ports:
+      - "8005:8005"
+    environment:
+      - PORT=8005
+      - SERVICE_NAME=Gatekeeper AG
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-us-central1}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-true}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.8-flash}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    networks:
+      - ducktaipe-net
+    restart: unless-stopped
+
+  researcher:
+    build:
+      context: ./agents/researcher
+      dockerfile: Dockerfile
+    container_name: ducktaipe-researcher
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - SERVICE_NAME=Researcher AG
+      - MCP_SERVER_URL=http://mcp-server:8888/sse
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-us-central1}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-true}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.8-flash}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    depends_on:
+      - mcp-server
+    networks:
+      - ducktaipe-net
+    restart: unless-stopped
+
+  judge:
+    build:
+      context: ./agents/judge
+      dockerfile: Dockerfile
+    container_name: ducktaipe-judge
+    ports:
+      - "8002:8002"
+    environment:
+      - PORT=8002
+      - SERVICE_NAME=Judge AG
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-us-central1}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-true}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.8-flash}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    networks:
+      - ducktaipe-net
+    restart: unless-stopped
+
+  content-builder:
+    build:
+      context: ./agents/content_builder
+      dockerfile: Dockerfile
+    container_name: ducktaipe-content-builder
+    ports:
+      - "8003:8003"
+    environment:
+      - PORT=8003
+      - SERVICE_NAME=Content Builder AG
+      - MCP_SERVER_URL=http://mcp-server:8888/sse
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-us-central1}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-true}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.8-flash}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    depends_on:
+      - mcp-server
+    networks:
+      - ducktaipe-net
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: ./agents/orchestrator
+      dockerfile: Dockerfile
+    container_name: ducktaipe-orchestrator
+    ports:
+      - "8004:8004"
+    environment:
+      - PORT=8004
+      - SERVICE_NAME=Orchestrator AG
+      - GATEKEEPER_AGENT_CARD_URL=http://gatekeeper:8005/a2a/agent/.well-known/agent-card.json
+      - RESEARCHER_AGENT_CARD_URL=http://researcher:8001/a2a/agent/.well-known/agent-card.json
+      - JUDGE_AGENT_CARD_URL=http://judge:8002/a2a/agent/.well-known/agent-card.json
+      - CONTENT_BUILDER_AGENT_CARD_URL=http://content-builder:8003/a2a/agent/.well-known/agent-card.json
+      - MCP_SERVER_URL=http://mcp-server:8888/sse
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-us-central1}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-true}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.8-flash}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    depends_on:
+      - gatekeeper
+      - researcher
+      - judge
+      - content-builder
+      - mcp-server
+    networks:
+      - ducktaipe-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: ducktaipe-frontend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - AGENT_SERVER_URL=http://orchestrator:8004
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-true}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    depends_on:
+      - orchestrator
+    networks:
+      - ducktaipe-net
+    restart: unless-stopped
+
+networks:
+  ducktaipe-net:
+    driver: bridge

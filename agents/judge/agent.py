@@ -1,6 +1,7 @@
 # Objective: This file defines the judge agent that evaluates 
 # research findings for completeness and quality.
 
+import os
 import logging
 from typing import Literal
 from google.adk.agents import Agent
@@ -11,7 +12,7 @@ from google.adk.agents.callback_context import CallbackContext
 logger = logging.getLogger(__name__)
 
 # Define the model version for the evaluation task
-MODEL = "gemini-2.5-pro"
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 
 # Define the data structure for judge responses
 class JudgeFeedback(BaseModel):

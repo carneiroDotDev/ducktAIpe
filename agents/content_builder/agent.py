@@ -17,7 +17,7 @@ mcp_toolset = McpToolset(
 )
 
 # Define the model version for content generation
-MODEL = "gemini-2.5-pro"
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 
 # Logging callbacks for the agent
 def agent_before_callback(callback_context: CallbackContext, **kwargs):

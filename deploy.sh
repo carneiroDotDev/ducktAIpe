@@ -35,6 +35,8 @@ if [[ "${REGION}" == "" ]]; then
 fi
 echo "Using project ${GOOGLE_CLOUD_PROJECT}."
 echo "Using compute region ${REGION}."
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.8-flash}"
+echo "Using Gemini model ${GEMINI_MODEL}."
 
 gcloud run deploy gatekeeper \
   --source agents/gatekeeper \
@@ -42,15 +44,16 @@ gcloud run deploy gatekeeper \
   --region $REGION \
   --no-allow-unauthenticated \
   --set-env-vars GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" \
-  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true"
-GATEKEEPER_URL=$(gcloud run services describe gatekeeper --region $REGION --format='value(status.url)')
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true" \
+  --set-env-vars GEMINI_MODEL="${GEMINI_MODEL}"
+GATEKEEPER_URL=$(gcloud run services describe gatekeeper --project $GOOGLE_CLOUD_PROJECT --region $REGION --format='value(status.url)')
 
 gcloud run deploy mcp-server \
   --source mcp_server \
   --project $GOOGLE_CLOUD_PROJECT \
   --region $REGION \
   --allow-unauthenticated
-MCP_URL=$(gcloud run services describe mcp-server --region $REGION --format='value(status.url)')
+MCP_URL=$(gcloud run services describe mcp-server --project $GOOGLE_CLOUD_PROJECT --region $REGION --format='value(status.url)')
 
 # Wait for MCP server cold start / warm up
 echo "Waiting for MCP server to wake up at $MCP_URL..."
@@ -76,8 +79,9 @@ gcloud run deploy researcher \
   --no-allow-unauthenticated \
   --set-env-vars GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true" \
-  --set-env-vars MCP_SERVER_URL="$MCP_URL/sse"
-RESEARCHER_URL=$(gcloud run services describe researcher --region $REGION --format='value(status.url)')
+  --set-env-vars MCP_SERVER_URL="$MCP_URL/sse" \
+  --set-env-vars GEMINI_MODEL="${GEMINI_MODEL}"
+RESEARCHER_URL=$(gcloud run services describe researcher --project $GOOGLE_CLOUD_PROJECT --region $REGION --format='value(status.url)')
 
 gcloud run deploy content-builder \
   --source agents/content_builder \
@@ -86,8 +90,9 @@ gcloud run deploy content-builder \
   --no-allow-unauthenticated \
   --set-env-vars GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true" \
-  --set-env-vars MCP_SERVER_URL="$MCP_URL/sse"
-CONTENT_BUILDER_URL=$(gcloud run services describe content-builder --region $REGION --format='value(status.url)')
+  --set-env-vars MCP_SERVER_URL="$MCP_URL/sse" \
+  --set-env-vars GEMINI_MODEL="${GEMINI_MODEL}"
+CONTENT_BUILDER_URL=$(gcloud run services describe content-builder --project $GOOGLE_CLOUD_PROJECT --region $REGION --format='value(status.url)')
 
 gcloud run deploy judge \
   --source agents/judge \
@@ -95,8 +100,9 @@ gcloud run deploy judge \
   --region $REGION \
   --no-allow-unauthenticated \
   --set-env-vars GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" \
-  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true"
-JUDGE_URL=$(gcloud run services describe judge --region $REGION --format='value(status.url)')
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true" \
+  --set-env-vars GEMINI_MODEL="${GEMINI_MODEL}"
+JUDGE_URL=$(gcloud run services describe judge --project $GOOGLE_CLOUD_PROJECT --region $REGION --format='value(status.url)')
 
 gcloud run deploy orchestrator \
   --source agents/orchestrator \
@@ -109,7 +115,7 @@ gcloud run deploy orchestrator \
   --set-env-vars CONTENT_BUILDER_AGENT_CARD_URL=$CONTENT_BUILDER_URL/a2a/agent/.well-known/agent-card.json \
   --set-env-vars GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="true"
-ORCHESTRATOR_URL=$(gcloud run services describe orchestrator --region $REGION --format='value(status.url)')
+ORCHESTRATOR_URL=$(gcloud run services describe orchestrator --project $GOOGLE_CLOUD_PROJECT --region $REGION --format='value(status.url)')
 
 gcloud run deploy ducktaipe-frontend \
   --source app \
@@ -118,3 +124,9 @@ gcloud run deploy ducktaipe-frontend \
   --allow-unauthenticated \
   --set-env-vars AGENT_SERVER_URL=$ORCHESTRATOR_URL \
   --set-env-vars GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}"
+
+FRONTEND_URL=$(gcloud run services describe ducktaipe-frontend --project $GOOGLE_CLOUD_PROJECT --region $REGION --format='value(status.url)')
+echo "--------------------------------------------------------"
+echo "Deployment Complete! Frontend is live at: $FRONTEND_URL"
+echo "--------------------------------------------------------"
+

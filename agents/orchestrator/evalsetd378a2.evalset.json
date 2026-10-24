@@ -1,0 +1,18 @@
+{
+  "eval_set_id": "evalsetd378a2",
+  "name": "evalsetd378a2",
+  "eval_cases": [
+    {
+      "eval_case_id": "evalcase001",
+      "name": "evalcase001",
+      "input": {
+        "query": "How to fix a flat bicycle tire?"
+      },
+      "expected_output": {
+        "status": "pass",
+        "feedback": "The repair guide is comprehensive and technically accurate. The guide correctly identifies the problem of flat bicycle tire, lists the appropriate tools and parts, and provides a clear, step-by-step process for the repair. Crucially, it includes prominent and correct safety warnings regarding battery handling and fragile ribbon cables. The procedure is sound and safe for a user to follow."
+      }
+    }
+  ],
+  "creation_timestamp": 1774960725.876437
+}
